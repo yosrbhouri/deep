@@ -1,0 +1,70 @@
+# ═══════════════════════════════════════════════════════════════
+# TumorNet v10 — Docker Compose
+# Orchestration multi-services : API FastAPI + Dashboard Streamlit
+# Conforme Cahier des Charges : conteneurisation, portabilité,
+# compatibilité Windows / Linux / Cloud
+# ═══════════════════════════════════════════════════════════════
+
+version: '3.9'
+
+services:
+
+  # ── Service 1 : API FastAPI (modèle EfficientNetB0) ───────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tumornet-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Les modèles .h5 sont montés depuis le dossier local models/
+      # Ne pas copier dans l'image pour pouvoir les remplacer sans rebuild
+      - ./models:/app/models:ro
+    environment:
+      - MODELS_DIR=/app/models
+      - CONF_THRESHOLD=0.70
+      - ANOMALY_MSE_THRESHOLD=0.02
+      - TF_CPP_MIN_LOG_LEVEL=2
+    networks:
+      - tumornet-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # ── Service 2 : Dashboard Streamlit ──────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: tumornet-dashboard
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - tumornet-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# ── Réseau isolé entre les services ──────────────────────────────
+networks:
+  tumornet-network:
+    driver: bridge
+
+# ── Volumes persistants ───────────────────────────────────────────
+volumes:
+  models-data:
+    driver: local

@@ -1,0 +1,38 @@
+# ═══════════════════════════════════════════════════════════════
+# TumorNet v10 — Docker Compose PRODUCTION
+# Lancer avec : docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# ═══════════════════════════════════════════════════════════════
+
+version: '3.9'
+
+services:
+
+  api:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          memory: 2G
+    environment:
+      - UVICORN_WORKERS=4
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  dashboard:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
